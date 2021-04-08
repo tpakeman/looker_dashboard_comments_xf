@@ -1,1 +1,1 @@
-# looker_dashboard_comments_xf
+### Looker Dashboard Comments Extension
