@@ -124,7 +124,7 @@ const CommentDisplay = (props) => {
     const [newCommentText, setNewCommentText] = useState('')
     const submitComment = () => {
         let tmp = commentData
-        let curMax = Math.max(...tmp.map(c => Number(c.id)))
+        let curMax = Math.max(...tmp.map(c => Number(c.id))) || 0
         let newComment = {
             id: Number(curMax + 1),
             author: props.me.display_name,
