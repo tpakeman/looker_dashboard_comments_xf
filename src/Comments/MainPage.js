@@ -3,10 +3,10 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { lookerCaller } from '../utils'
 import {
-     Box, Heading, Select, TextArea, Button, Divider, List, ListItem, MessageBar, Card, CardContent, Paragraph, Spinner,
+     Box, Heading, Select, TextArea, Button, Divider, List, ListItem, MessageBar, Card, CardContent, Paragraph,
 } from '@looker/components'
 import { DashboardFile } from '@looker/icons'
-import { EmbedContainer } from './CustomComponents'
+import { EmbedContainer, LoadingComponent } from './CustomComponents'
 
 const FolderPicker = (props) => {
     const [selection, setSelection] = useState(undefined)
@@ -57,7 +57,7 @@ const DashboardList = (props) => {
             <Heading as='h4' mb='small'>Dashboards</Heading>
             <Divider mb='small'/>
                 <List>
-                    {loading ? <Spinner/> : dashboards.length == 0 && <Heading as='h5'>No Dashboards in folder</Heading>}
+                    {loading ? <LoadingComponent/> : dashboards.length == 0 && <Heading as='h5'>No Dashboards in folder</Heading>}
                     {dashboards.map(d => {
                         return (
                             <ListItem
@@ -81,18 +81,24 @@ const DashboardDisplay = (props) => {
     const extensionContext = useContext(ExtensionContext)
     const [dashboard, setDashboard] = useState(undefined)
 
+    const setupDashboard = (d) => {
+        props.setIsLoading(false)
+        setDashboard(d)
+    }
+
     const embedCtrRef = useCallback((el) => {
         const hostUrl = extensionContext?.extensionSDK?.lookerHostData?.hostUrl
         if (el && hostUrl) {
-          el.innerHTML = ''
-          LookerEmbedSDK.init(hostUrl)
-          const dash = LookerEmbedSDK.createDashboardWithId(Number(props.dashboard.id))
-          dash.appendTo(el)
-            .build()
-            .connect()
-            .then((d) => setDashboard(d))
-            .catch((e) => {console.error('Connection error', e)})
-        }
+            props.setIsLoading(true)
+            el.innerHTML = ''
+            LookerEmbedSDK.init(hostUrl)
+            const dash = LookerEmbedSDK.createDashboardWithId(Number(props.dashboard.id))
+            dash.appendTo(el)
+                .build()
+                .connect()
+                .then((d) => setupDashboard(d))
+                .catch((e) => {console.error('Connection error', e)})
+            }
       },
       [props.dashboard]
     )
@@ -122,9 +128,11 @@ const CommentDisplay = (props) => {
     const [validForComments, setValidForComments] = useState(false)
     const [invalidDescription, setInvalidDescription] = useState(undefined)
     const [newCommentText, setNewCommentText] = useState('')
+    const [processing, setProcessing] = useState(false)
     const submitComment = () => {
-        let tmp = commentData
-        let curMax = Math.max(...tmp.map(c => Number(c.id))) || 0
+        setProcessing(true)
+        let tmp = Array.from(commentData)
+        let curMax = tmp.length == 0 ? 0 : Math.max(...tmp.map(c => Number(c.id)))
         let newComment = {
             id: Number(curMax + 1),
             author: props.me.display_name,
@@ -132,15 +140,17 @@ const CommentDisplay = (props) => {
             msg: newCommentText,
             avatar: props.me.avatar_url
         }
-        console.log(newComment)
         tmp.push(newComment)
         props.lookerRequest('update_dashboard', props.dashboard.id, {
-            description: JSON.stringify(commentData)
+            description: JSON.stringify(tmp)
+        }).then(r => {
+            setCommentData(tmp)
+            setNewCommentText('')
+            setValidForComments(true)
+            setInvalidDescription(false)
+            setProcessing(false)
         })
-        setCommentData(tmp)
-        setNewCommentText('')
-        setValidForComments(true)
-        setInvalidDescription(false)
+        .catch(e => console.error(e))
     }
 
     const parseToJson = (commentText) => {
@@ -170,7 +180,6 @@ const CommentDisplay = (props) => {
 
     useEffect(() => {
         if (props.dashboard) {
-            resetCommentState()
             // Attempt to parse existing comments
             let parsed = parseToJson(props.dashboard?.description)
             // Existing comments 
@@ -189,9 +198,12 @@ const CommentDisplay = (props) => {
                 }
             }
         }
+        return () => resetCommentState()
     }, [props.dashboard])
-
-    if (props.dashboard) {
+    if (props.isLoading) {
+        return <LoadingComponent/>
+    }
+    else if (props.dashboard) {
         return (
             <Box p='xlarge' height='auto' overflow='scroll'>
             <Divider mb='small'/>
@@ -205,7 +217,7 @@ const CommentDisplay = (props) => {
             {validForComments && 
                 <Box m='large'>
                     {commentData.length > 0 
-                        ? commentData.map(c => {return <CommentCard key={c.id} {...c} />})
+                        ? <CommentChain data={commentData}/>
                         : <Card width='50%' height='50px' p='medium' style={{backgroundColor: 'lightgrey'}}><Heading as='h5'>No comments yet!</Heading></Card>
                     }
                     <Divider mt='medium' mb='medium'/>
@@ -215,7 +227,9 @@ const CommentDisplay = (props) => {
                         value={newCommentText}
                         onChange={handleCommentEntry}
                     />
-                    <Button m='xsmall' onClick={submitComment}>Submit</Button>
+                    <Button m='xsmall' disabled={processing} onClick={submitComment}>
+                        {processing ? 'Submitting...' : 'Submit'}
+                    </Button>
                 </Box>
             }
         </Box>
@@ -223,6 +237,13 @@ const CommentDisplay = (props) => {
     } else {
         return (<></>)
     }
+}
+
+const CommentChain = (props) => {
+    console.log(props.data)
+    return (
+        props.data.map(c => {return <CommentCard key={c.id} {...c} />})
+    )
 }
 
 const CommentCard = (props) => {
@@ -274,12 +295,15 @@ const SideNav = (props) => {
 }
 
 const MainFrame = (props) => {
+    const [isLoading, setIsLoading] = useState(false)
     return (
         <Box height='100%' width='100%' >
         <DashboardDisplay
             dashboard={props.dashboard}
+            setIsLoading={setIsLoading}
         />
         <CommentDisplay
+            isLoading={isLoading}
             me={props.me}
             dashboard={props.dashboard}
             lookerRequest={props.lookerRequest}
