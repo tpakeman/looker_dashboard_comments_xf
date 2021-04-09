@@ -3,7 +3,7 @@ import { ExtensionContext } from '@looker/extension-sdk-react'
 import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { lookerCaller } from '../utils'
 import {
-    Flex, Box, Heading, Select, InputText, Button, Divider, List, ListItem, Space, MessageBar, Card, CardContent, Paragraph, Spinner,
+     Box, Heading, Select, TextArea, Button, Divider, List, ListItem, MessageBar, Card, CardContent, Paragraph, Spinner,
 } from '@looker/components'
 import { DashboardFile } from '@looker/icons'
 import { EmbedContainer } from './CustomComponents'
@@ -18,6 +18,7 @@ const FolderPicker = (props) => {
         <Box width='100%' mb='large'>
             <Heading as='h2' mb='small'>Choose Folder</Heading>
             <Select
+                placeholder={'Choose a folder'}
                 value={selection}
                 options={props.data}
                 onChange={handleSelect}
@@ -31,11 +32,13 @@ const DashboardList = (props) => {
     const [selection, setSelection] = useState(undefined)
     const [loading, setLoading] = useState(false)
     useEffect(() => {
-        setLoading(true)
-        props.lookerRequest('folder_dashboards', props.folder).then(d => {
-            setDashboards(d)
-            setLoading(false)
-        })
+        if (props.folder) {
+            setLoading(true)
+            props.lookerRequest('folder_dashboards', props.folder).then(d => {
+                setDashboards(d)
+                setLoading(false)
+            })
+        }
     }, [props.folder])
 
     const handleClick = (e) => {
@@ -45,23 +48,25 @@ const DashboardList = (props) => {
 
     return (
         <Box width='100%'>
+            {props.folder && <>
             <Heading as='h4' mb='small'>Dashboards</Heading>
             <Divider mb='small'/>
-            <List>
-                {loading && <Spinner/>}
-                {dashboards.map(d => {
-                    return (
-                        <ListItem
-                            style={{borderLeft: d.id==selection?'4px solid rgb(45, 126, 234)':'none'}}
-                            onClick={() => handleClick(d)}
-                            key={d.id}
-                            icon={<DashboardFile/>}
-                        >
-                            {d.title}
-                        </ListItem>
-                    )  
-                })}
-            </List>
+                <List>
+                    {loading ? <Spinner/> : dashboards.length == 0 && <Heading as='h5'>No Dashboards in folder</Heading>}
+                    {dashboards.map(d => {
+                        return (
+                            <ListItem
+                                style={{borderLeft: d.id==selection?'4px solid rgb(45, 126, 234)':'none'}}
+                                onClick={() => handleClick(d)}
+                                key={d.id}
+                                icon={<DashboardFile/>}
+                            >
+                                {d.title}
+                            </ListItem>
+                        )  
+                    })}
+                </List></>
+            }
         </Box>
     )
 }
@@ -89,7 +94,7 @@ const DashboardDisplay = (props) => {
 
 
     return (
-        <Box p='xlarge' height='60%'>
+        <Box p='xlarge'>
             {props.dashboard && 
                 <>
                     <Heading as='h2'>Dashboard</Heading>
@@ -100,30 +105,37 @@ const DashboardDisplay = (props) => {
     )
 }
 
+const AvatarIcon = (props) => {
+    return (
+        <img display='inline' src={props.src} style={{borderRadius: '50%'}} width='50px' height='50px'/>
+    )
+}
+
 // three possible outcomes - no comments, comments, other description
 const CommentDisplay = (props) => {
     const [commentData, setCommentData] = useState([])
-    const [validComment, setValidComment] = useState(true)
+    const [validForComments, setValidForComments] = useState(false)
     const [invalidDescription, setInvalidDescription] = useState(undefined)
     const [newCommentText, setNewCommentText] = useState('')
     const submitComment = () => {
         let tmp = commentData
-        let curMax = Math.max(tmp.map(c => c.id))
+        let curMax = Math.max(...tmp.map(c => Number(c.id)))
         let newComment = {
-            id: curMax + 1,
+            id: Number(curMax + 1),
             author: props.me.display_name,
             timestamp: new Date().toDateString(),
-            msg: newCommentText
+            msg: newCommentText,
+            avatar: props.me.avatar_url
         }
+        console.log(newComment)
         tmp.push(newComment)
         props.lookerRequest('update_dashboard', props.dashboard.id, {
             description: JSON.stringify(commentData)
         })
         setCommentData(tmp)
         setNewCommentText('')
-        setValidComment(true)
+        setValidForComments(true)
         setInvalidDescription(false)
-        // avatar?
     }
 
     const parseToJson = (commentText) => {
@@ -134,46 +146,78 @@ const CommentDisplay = (props) => {
         }
     }
 
+    const resetCommentState = () => {
+        setCommentData([])
+        setValidForComments(false)
+        setInvalidDescription(undefined)
+        setNewCommentText('')
+    }
+
+    const makeReadyForComments = () => {
+        setCommentData([])
+        setValidForComments(true)
+        setInvalidDescription(undefined)
+    }
+
     const handleCommentEntry = (e) => {
         setNewCommentText(e.target.value)
     }
 
     useEffect(() => {
         if (props.dashboard) {
+            resetCommentState()
+            // Attempt to parse existing comments
             let parsed = parseToJson(props.dashboard?.description)
+            // Existing comments 
             if (parsed) {
                 setCommentData(parsed)
+                setValidForComments(true)
             } else {
-                if (props.dashboard.description.length > 0) {
-                    setValidComment(false)
-                    setInvalidDescription(props.dashboard.description)
-                }
                 setCommentData([])
+            // Existing description
+                if (props.dashboard.description.length > 0) {
+                    setValidForComments(false)
+                    setInvalidDescription(props.dashboard.description)
+                } else {
+                    // Empty Comments
+                    setValidForComments(true)
+                }
             }
         }
     }, [props.dashboard])
 
-    return (
-        <Box p='xlarge' height='auto'>
+    if (props.dashboard) {
+        return (
+            <Box p='xlarge' height='auto'>
             <Divider mb='small'/>
             <Heading as='h2'>Comments</Heading>
-                {(!validComment && invalidDescription)
-                    && <MessageBar intent='critical'>Existing description exists!
-                    {invalidDescription}</MessageBar>
+            {invalidDescription && 
+                <Box m='small'>
+                    <MessageBar m='small' intent='critical'>Enabling comments will overwrite existing description: "{invalidDescription}"</MessageBar>
+                    <Button m='small' color='critical' onClick={makeReadyForComments}>Delete current description to enable comments</Button>
+                </Box>
+                }
+            {validForComments && 
+                <Box m='large' overflow='scroll'>
+                    {commentData.length > 0 
+                        ? commentData.map(c => {return <CommentCard key={c.id} {...c} />})
+                        : <Card width='50%' height='50px' p='medium' style={{backgroundColor: 'lightgrey'}}><Heading as='h5'>No comments yet!</Heading></Card>
                     }
-                {commentData.map(c => {
-                    return <CommentCard key={c.id} {...c} />
-                })}
-            <Divider mb='small'/>
-            <InputText
-                m='xsmall'
-                placeholder={'Add a new comment'}
-                value={newCommentText}
-                onChange={handleCommentEntry}
-            />
-            <Button m='xsmall' onClick={submitComment}>Submit</Button>
+                    <Divider mt='medium' mb='medium'/>
+                    <TextArea
+                        m='xsmall'
+                        placeholder={'Add a new comment'}
+                        value={newCommentText}
+                        onChange={handleCommentEntry}
+                    />
+                    <Button m='xsmall' onClick={submitComment}>Submit</Button>
+                </Box>
+            }
         </Box>
     )
+    } else {
+        return (<></>)
+    }
 }
 
 const CommentCard = (props) => {
@@ -186,7 +230,8 @@ const CommentCard = (props) => {
             style={{float: props.id % 2 == 0 ? 'right' : 'left'}}
         >
             <CardContent>
-                <Heading as='h4'>{props.author}</Heading>
+                {props.avatar && <AvatarIcon src={props.avatar}/>}
+                <Heading display='inline' as='h4'>{props.author}</Heading>
                 <Heading as='h6'>{props.timestamp}</Heading>
                 <Paragraph>
                     {props.msg}
