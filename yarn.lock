@@ -1093,6 +1093,13 @@
     polished "^4.0.5"
     styled-system "^5.1.5"
 
+"@looker/embed-sdk@^1.6.0":
+  version "1.6.0"
+  resolved "https://registry.yarnpkg.com/@looker/embed-sdk/-/embed-sdk-1.6.0.tgz#f8964e2f4554c4b52db4f5903323470539522d4d"
+  integrity sha512-wReAQubvcQDBAVI23JoMmoKkwG/hFQd+KXeq+OsEEdikWsp4tZySDEBDes0gn9MvSC9OsEdvw7z3I3rajR84eA==
+  dependencies:
+    "@looker/chatty" "^2.3.0"
+
 "@looker/extension-sdk-react@^21.4.0":
   version "21.4.0"
   resolved "https://registry.yarnpkg.com/@looker/extension-sdk-react/-/extension-sdk-react-21.4.0.tgz#802a4da0b464800206fb57e0ea3c8f04dd14ef1b"
@@ -1121,6 +1128,13 @@
     request "^2.88.0"
     request-promise-native "^1.0.8"
     semver "^7.3.4"
+
+"@looker/icons@^1.1.3":
+  version "1.1.3"
+  resolved "https://registry.yarnpkg.com/@looker/icons/-/icons-1.1.3.tgz#9693c031752eb0e327a9c6e3806781a9b4dedc5b"
+  integrity sha512-/RamQ6ZycMfcggQ7v1Dj9jF7Y/k9yEW4GrsvM3Zch4D2qWMVE0B0LamKhnGkaUF4P06XZO5m20jKbUJjABTiSA==
+  dependencies:
+    "@styled-icons/styled-icon" "^10.6.3"
 
 "@looker/sdk-rtl@^21.0.11":
   version "21.0.11"
