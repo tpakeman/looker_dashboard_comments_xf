@@ -10,18 +10,23 @@ import { EmbedContainer } from './CustomComponents'
 
 const FolderPicker = (props) => {
     const [selection, setSelection] = useState(undefined)
+    const [searchTerm, setSearchTerm] = useState(undefined)
     const handleSelect = (e) => {
         setSelection(e)
         props.chooseFolder(e)
     }
+    const handleFilter = (t) => {setSearchTerm(t)}
+    
     return (
         <Box width='100%' mb='large'>
             <Heading as='h2' mb='small'>Choose Folder</Heading>
             <Select
+                isFilterable
                 placeholder={'Choose a folder'}
                 value={selection}
-                options={props.data}
+                options={searchTerm ? props.data.filter(d => d.label.toLowerCase().includes(searchTerm.toLowerCase())) : props.data}
                 onChange={handleSelect}
+                onFilter={handleFilter}
             />
         </Box>
     )
@@ -188,7 +193,7 @@ const CommentDisplay = (props) => {
 
     if (props.dashboard) {
         return (
-            <Box p='xlarge' height='auto'>
+            <Box p='xlarge' height='auto' overflow='scroll'>
             <Divider mb='small'/>
             <Heading as='h2'>Comments</Heading>
             {invalidDescription && 
@@ -198,7 +203,7 @@ const CommentDisplay = (props) => {
                 </Box>
                 }
             {validForComments && 
-                <Box m='large' overflow='scroll'>
+                <Box m='large'>
                     {commentData.length > 0 
                         ? commentData.map(c => {return <CommentCard key={c.id} {...c} />})
                         : <Card width='50%' height='50px' p='medium' style={{backgroundColor: 'lightgrey'}}><Heading as='h5'>No comments yet!</Heading></Card>
@@ -249,7 +254,7 @@ const SideNav = (props) => {
         <Box
             // height='100%'
             width='25%'
-            borderRight='1px solid grey'
+            // borderRight='1px solid grey'
             p='medium'
         >
             <FolderPicker
@@ -261,6 +266,9 @@ const SideNav = (props) => {
                 handleSelect={props.handleSelect}
                 lookerRequest={props.lookerRequest}
             />
+            <Box bottom='0' position='fixed'>
+                <Paragraph m='small' fontSize='small' textAlign='right'>Made by Tom Pakeman. <a target='_blank' href="https://github.com/tpakeman/looker_dashboard_comments_xf">Click here for source code</a></Paragraph>
+            </Box>
         </Box>
     )
 }
